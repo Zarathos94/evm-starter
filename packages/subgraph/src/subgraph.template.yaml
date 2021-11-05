@@ -1,0 +1,25 @@
+specVersion: 0.0.2
+schema:
+  file: ./src/schema.graphql
+dataSources:
+  - kind: ethereum/contract
+    name: RallyAssignment
+    network: localhost
+    source:
+      address: "{{localhost_RallyAssignmentAddress}}"
+      abi: RallyAssignment
+      startBlock: 1
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - Purpose
+        - Sender
+      abis:
+        - name: RallyAssignment
+          file: ./abis/localhost_RallyAssignment.json
+      eventHandlers:
+        - event: setMessage(address,string)
+          handler: handlesetMessage
+      file: ./src/mapping.ts
