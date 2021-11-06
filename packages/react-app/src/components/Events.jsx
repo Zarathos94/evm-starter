@@ -1,8 +1,9 @@
 import { List } from "antd";
 import { useEventListener } from "eth-hooks/events/useEventListener";
 import { Address } from "../components";
-import AES from "crypto-js/aes";
-import CryptoJS from "crypto-js";
+import EthCrypto from "eth-crypto";
+import * as ethUtil from "ethereumjs-util";
+import React, { useState, useEffect } from "react";
 
 /*
   ~ What it does? ~
@@ -21,26 +22,39 @@ import CryptoJS from "crypto-js";
   />
 */
 
-export default function Events({
-  contracts,
-  contractName,
-  eventName,
-  localProvider,
-  mainnetProvider,
-  startBlock,
-  privateKey,
-}) {
+export default function Events({ contracts, contractName, eventName, localProvider, mainnetProvider, startBlock }) {
   // 📟 Listen for broadcast events
-  const events = useEventListener(contracts, contractName, eventName, localProvider, startBlock, privateKey);
+  const events = useEventListener(contracts, contractName, eventName, localProvider, startBlock);
 
-  function IsEncryptedJsonString(str, key) {
-    try {
-      JSON.parse(AES.decrypt(str, key).toString(CryptoJS.enc.Utf8));
-    } catch (e) {
-      return false;
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    for (let x = 0; x < events.length; x++) {
+      Decrypt(events[x].args[1]).then(value => {
+        events[x].messageDecrypted = value ? value.message : "Private message!";
+      });
+      console.log(events[x]);
     }
-    return true;
-  }
+    setData(events);
+  }, [events]);
+
+  const Decrypt = async str => {
+    const pKey = localStorage.getItem("privateKey");
+    try {
+      if (!ethUtil.isValidPrivate(Buffer.from(pKey, "hex"))) {
+        console.log("Invalid private key");
+        return null;
+      }
+      const decrypted = await EthCrypto.decryptWithPrivateKey(pKey, str);
+      const decryptedPayload = JSON.parse(decrypted);
+      if (!decryptedPayload) return null;
+      return decryptedPayload;
+    } catch (e) {
+      console.log(e);
+      return null;
+    }
+  };
+
   return (
     <div style={{ width: 600, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
       <h2>Events:</h2>
@@ -51,9 +65,8 @@ export default function Events({
           return (
             <List.Item key={item.blockNumber + "_" + item.args.sender + "_" + item.args.message}>
               <Address address={item.args[0]} ensProvider={mainnetProvider} fontSize={16} />
-              {IsEncryptedJsonString(item.args[1], privateKey)
-                ? JSON.parse(AES.decrypt(item.args[1], privateKey).toString(CryptoJS.enc.Utf8)).msg
-                : "Private message!"}
+              <br />
+              {item.messageDecrypted}
             </List.Item>
           );
         }}

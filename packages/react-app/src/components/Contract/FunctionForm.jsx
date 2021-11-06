@@ -3,8 +3,8 @@ import React, { useState } from "react";
 import Blockies from "react-blockies";
 import { Transactor } from "../../helpers";
 import tryToDisplay from "./utils";
-import AES from "crypto-js/aes";
-
+import EthCrypto from "eth-crypto";
+import * as ethUtil from "ethereumjs-util";
 const { utils, BigNumber } = require("ethers");
 
 const getFunctionInputKey = (functionInfo, input, inputIndex) => {
@@ -12,14 +12,7 @@ const getFunctionInputKey = (functionInfo, input, inputIndex) => {
   return functionInfo.name + "_" + name + "_" + input.type;
 };
 
-export default function FunctionForm({
-  contractFunction,
-  functionInfo,
-  provider,
-  gasPrice,
-  triggerRefresh,
-  privateKey,
-}) {
+export default function FunctionForm({ contractFunction, functionInfo, provider, gasPrice, triggerRefresh }) {
   const [form, setForm] = useState({});
   const [txValue, setTxValue] = useState();
   const [returnValue, setReturnValue] = useState();
@@ -176,7 +169,9 @@ export default function FunctionForm({
   inputs.push(
     <div style={{ cursor: "pointer", margin: 2 }} key="goButton">
       <Input
-        onChange={e => setReturnValue(e.target.value)}
+        onChange={e => {
+          setReturnValue(e.target.value);
+        }}
         defaultValue=""
         bordered={false}
         disabled
@@ -186,7 +181,7 @@ export default function FunctionForm({
             style={{ width: 50, height: 30, margin: 0 }}
             type="default"
             onClick={async () => {
-              const args = functionInfo.inputs.map((input, inputIndex) => {
+              const args = functionInfo.inputs.map(async (input, inputIndex) => {
                 const key = getFunctionInputKey(functionInfo, input, inputIndex);
                 let value = form[key];
                 if (input.baseType === "array") {
@@ -198,7 +193,19 @@ export default function FunctionForm({
                     value = 0;
                   }
                 } else if (input.type === "string") {
-                  return AES.encrypt(JSON.stringify({ msg: value }), privateKey.toString()).toString();
+                  const signature = EthCrypto.sign(
+                    localStorage.getItem("privateKey"),
+                    EthCrypto.hash.keccak256(value.toString()),
+                  );
+                  const pubKey = EthCrypto.publicKeyByPrivateKey(localStorage.getItem("privateKey"));
+                  const encrypted = await EthCrypto.encryptWithPublicKey(
+                    pubKey,
+                    JSON.stringify({
+                      message: value.toString(),
+                      signature,
+                    }),
+                  );
+                  return EthCrypto.cipher.stringify(encrypted);
                 }
                 return value;
               });
@@ -207,7 +214,7 @@ export default function FunctionForm({
               if (functionInfo.stateMutability === "view" || functionInfo.stateMutability === "pure") {
                 try {
                   const returned = await contractFunction(...args);
-                  result = tryToDisplay(returned, privateKey);
+                  result = tryToDisplay(returned);
                 } catch (err) {
                   console.error(err);
                 }
@@ -224,7 +231,7 @@ export default function FunctionForm({
 
                 // console.log("Running with extras",extras)
                 const returned = await tx(contractFunction(...args, overrides));
-                result = tryToDisplay(returned, privateKey);
+                result = tryToDisplay(returned);
               }
 
               console.log("SETTING RESULT:", result);

@@ -1,5 +1,5 @@
 import { Card, Input } from "antd";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useContractExistsAtAddress, useContractLoader } from "eth-hooks";
 import Account from "../Account";
 import DisplayVariable from "./DisplayVariable";
@@ -109,6 +109,7 @@ export default function Contract({
               value={privateKey}
               name="PrivateKey"
               onChange={event => {
+                localStorage.setItem("privateKey", event.target.value.toString());
                 setPrivateKey(event.target.value.toString());
               }}
             />

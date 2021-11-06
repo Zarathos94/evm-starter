@@ -2,7 +2,7 @@ import { utils } from "ethers";
 import { Button, Divider, Input } from "antd";
 import React, { useState } from "react";
 import { Address, Balance, Events } from "../components";
-import AES from "crypto-js/aes";
+import EthCrypto from "eth-crypto";
 export default function ExampleUI({
   purpose,
   address,
@@ -50,10 +50,19 @@ export default function ExampleUI({
             style={{ marginTop: 8 }}
             onClick={async () => {
               /* call setMessage on your contract: */
-              console.log(privateKey);
+              localStorage.setItem("privateKey", privateKey.toString());
+              const signature = EthCrypto.sign(privateKey, EthCrypto.hash.keccak256(newMessage));
+              const encrypted = await EthCrypto.encryptWithPublicKey(
+                EthCrypto.publicKeyByPrivateKey(privateKey),
+                JSON.stringify({
+                  message: newMessage,
+                  signature,
+                }),
+              );
               const result = tx(
                 writeContracts.RallyAssignment.setMessage(
-                  AES.encrypt(JSON.stringify({ msg: newMessage }), privateKey.toString()).toString(),
+                  EthCrypto.cipher.stringify(encrypted),
+                  //AES.encrypt(JSON.stringify({ msg: newMessage }), privateKey.toString()).toString(),
                 ),
                 update => {
                   console.log("📡 Transaction Update:", update);
@@ -114,6 +123,7 @@ export default function ExampleUI({
         mainnetProvider={mainnetProvider}
         startBlock={1}
         privateKey={privateKey}
+        signer={userSigner}
       />
     </div>
   );
